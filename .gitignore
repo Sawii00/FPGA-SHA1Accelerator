@@ -1,2 +1,5 @@
 tb/
 sha.h
+test_sha.cpp
+SimulationProject/
+a.out

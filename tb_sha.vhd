@@ -14,7 +14,9 @@ ARCHITECTURE arch_imp OF tb_sha IS
     signal start : std_logic;
     signal done : std_logic;
 	 signal st : std_logic_vector(2 downto 0);
-     signal debug_word_arr : WORD_ARR;
+    signal debug_word_arr : WORD_ARR;
+	 signal curr : std_logic_vector(511 downto 0);
+	 signal a_o, b_o,  c_o,  d_o,  e_o : std_logic_vector(31 downto 0);
 
     constant CLK_PERIOD : time:= 20 ns;
 
@@ -28,8 +30,14 @@ BEGIN
             hash => hash,
             start => start,
             done => done,
-                debug_word_arr => debug_word_arr,
-				st => st
+            debug_word_arr => debug_word_arr,
+				st => st,
+				curr => curr,
+				a_o => a_o,
+				b_o => b_o,
+				c_o => c_o,
+				d_o => d_o,
+				e_o => e_o
         );
 
     ckl_generation: process

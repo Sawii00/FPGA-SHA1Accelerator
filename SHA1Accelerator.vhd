@@ -1,9 +1,7 @@
 LIBRARY ieee;
 USE ieee.std_logic_1164.ALL;
 USE ieee.numeric_std.ALL;
-use work.common_utils_pkg.all;
-
-
+USE work.common_utils_pkg.ALL;
 ENTITY SHA1Accelerator IS
     PORT (
 
@@ -16,11 +14,8 @@ ENTITY SHA1Accelerator IS
 
         -- OUTPUTS
         done : OUT STD_LOGIC;
-        hash : OUT STD_LOGIC_VECTOR(159 DOWNTO 0);
+        hash : OUT STD_LOGIC_VECTOR(159 DOWNTO 0)
 
-        -- DEBUG
-        debug_word_arr : out WORD_ARR;
-        st : OUT STD_LOGIC_VECTOR(2 DOWNTO 0)
     );
 
 END SHA1Accelerator;
@@ -29,18 +24,9 @@ ARCHITECTURE arch_imp OF SHA1Accelerator IS
 
     TYPE State IS (IDLE, setup_padding_block, wait_state, populate_words, compute_hash);
     SIGNAL a, b, c, d, e : STD_LOGIC_VECTOR(31 DOWNTO 0);
-
-
     SIGNAL curr_state : State;
 BEGIN
 
-    -- DEBUG
-    WITH curr_state SELECT st <=
-        "000" WHEN Idle,
-        "001" WHEN populate_words,
-        "010" WHEN compute_hash,
-        "011" WHEN wait_state,
-        "100" when setup_padding_block;
 
     fsm : PROCESS (clk, nReset)
         VARIABLE words : WORD_ARR;
@@ -54,9 +40,9 @@ BEGIN
         VARIABLE c_var : unsigned(31 DOWNTO 0);
         VARIABLE d_var : unsigned(31 DOWNTO 0);
         VARIABLE e_var : unsigned(31 DOWNTO 0);
-        variable curr_block : STD_LOGIC_VECTOR(511 DOWNTO 0);
+        VARIABLE curr_block : STD_LOGIC_VECTOR(511 DOWNTO 0);
 
-        variable handled_block : std_logic;
+        VARIABLE handled_block : STD_LOGIC;
     BEGIN
         IF nReset = '0' THEN
             a <= x"67452301";
@@ -75,6 +61,7 @@ BEGIN
                     d <= x"10325476";
                     e <= x"C3D2E1F0";
                     curr_block := input_block;
+                    curr <= curr_block;
                     handled_block := '0';
                     IF start = '1' THEN
                         curr_state <= populate_words;
@@ -86,11 +73,12 @@ BEGIN
                     d_var := unsigned(d);
                     e_var := unsigned(e);
                     FOR i IN 0 TO 15 LOOP
-                        temp:= unsigned(curr_block(511 - 32*i downto 511 -32*(i + 1) + 1));
-                        words(i)(31 DOWNTO 24) := temp(7 DOWNTO 0);
-                        words(i)(23 DOWNTO 16) := temp(15 DOWNTO 8);
-                        words(i)(15 DOWNTO 8) := temp(23 DOWNTO 16);
-                        words(i)(7 DOWNTO 0) := temp(31 DOWNTO 24);
+                        temp := unsigned(curr_block(511 - 32 * i DOWNTO 511 - 32 * (i + 1) + 1));
+                        words(i) := temp;
+                        --words(i)(31 DOWNTO 24) := temp(7 DOWNTO 0);
+                        --words(i)(23 DOWNTO 16) := temp(15 DOWNTO 8);
+                        --words(i)(15 DOWNTO 8) := temp(23 DOWNTO 16);
+                        --words(i)(7 DOWNTO 0) := temp(31 DOWNTO 24);
                     END LOOP;
                     FOR i IN 16 TO 79 LOOP
                         temp := words(i - 3) XOR words(i - 8) XOR words(i - 14) XOR words(i - 16);
@@ -99,7 +87,6 @@ BEGIN
                         words(i)(0) := temp(31);
                     END LOOP;
                     -- DEBUG
-                    debug_word_arr<= words;
                     curr_state <= compute_hash;
                 WHEN compute_hash =>
                     FOR i IN 0 TO 79 LOOP
@@ -136,19 +123,19 @@ BEGIN
                     c <= STD_LOGIC_VECTOR(unsigned(c) + c_var);
                     d <= STD_LOGIC_VECTOR(unsigned(d) + d_var);
                     e <= STD_LOGIC_VECTOR(unsigned(e) + e_var);
-                    if handled_block = '0' THEN
+                    IF handled_block = '0' THEN
                         curr_state <= setup_padding_block;
                     ELSE
                         curr_state <= wait_state;
-                    end if;
-                when setup_padding_block =>
-                    curr_block(511 downto 496) := x"8000";
-                    curr_block(496 downto 64) := (others => '0');
-                    curr_block(63 downto 56) := x"00";
-                    curr_block(55 downto 48) := x"02";
-                    curr_block(47 downto 0) := (others => '0');
+                    END IF;
+                WHEN setup_padding_block =>
+                    curr_block(511 DOWNTO 504) := x"80";
+                    curr_block(503 DOWNTO 64) := (OTHERS => '0');
+                    -- 512 in big endian within 8 bytes
+                    curr_block(63 DOWNTO 0) := x"00_00_00_00_00_00_02_00";
                     handled_block := '1';
                     curr_state <= populate_words;
+                    curr <= curr_block;
                 WHEN wait_state =>
                     hash <= a & b & c & d & e;
                     done <= '1';
