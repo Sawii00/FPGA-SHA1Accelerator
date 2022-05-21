@@ -25,7 +25,8 @@ ARCHITECTURE arch_imp OF tb_cluster IS
     SIGNAL debug_hash_start : STD_LOGIC;
     SIGNAL debug_hash_nonces : arr_32(3 DOWNTO 0);
     SIGNAL debug_hash_done : STD_LOGIC;
-    SIGNAL debug_hash_done_all: STD_LOGIC_VECTOR(4 - 1 DOWNTO 0);
+    SIGNAL debug_reset_system : STD_LOGIC;
+    SIGNAL debug_hash_done_all : STD_LOGIC_VECTOR(4 - 1 DOWNTO 0);
 
 BEGIN
 
@@ -42,7 +43,8 @@ BEGIN
             debug_hash_nonces => debug_hash_nonces,
             debug_hash_start => debug_hash_start,
             debug_hash_done => debug_hash_done,
-            debug_hash_done_all=> debug_hash_done_all,
+            debug_hash_done_all => debug_hash_done_all,
+            debug_reset_system => debug_reset_system,
             hash => hash,
             nonce => nonce
         );
@@ -65,6 +67,14 @@ BEGIN
 
         input_block <= (OTHERS => '1');
         difficulty <= x"f0000000";
+        start <= '1';
+        WAIT FOR 2 * CLK_PERIOD;
+        start <= '0';
+        WAIT FOR 10 * CLK_PERIOD;
+        stop <= '1';
+        WAIT FOR 2 * CLK_PERIOD;
+        stop <= '0';
+
         start <= '1';
         WAIT FOR 2 * CLK_PERIOD;
         start <= '0';

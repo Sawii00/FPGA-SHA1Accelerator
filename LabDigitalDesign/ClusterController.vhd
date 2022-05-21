@@ -12,7 +12,6 @@ ENTITY ClusterController IS
         -- INPUTS FROM OUTSIDE
         --input_block : IN STD_LOGIC_VECTOR(511 DOWNTO 0);
         start : IN STD_LOGIC;
-        stop : IN STD_LOGIC;
         difficulty : IN STD_LOGIC_VECTOR(31 DOWNTO 0); -- Used as a mask (111000...000 means start with 3 zeros)
 
         clk : IN STD_LOGIC;
@@ -63,7 +62,6 @@ BEGIN
             hash_nonces <= (OTHERS => (OTHERS => '0'));
             curr_nonce := (OTHERS => '0');
         ELSIF rising_edge(clk) THEN
-            -- To stop the cluster 
             CASE curr_state IS
                 WHEN Idle =>
                     done <= '0';
@@ -105,9 +103,6 @@ BEGIN
                     END IF;
                 WHEN OTHERS => NULL;
             END CASE;
-            IF stop = '1' THEN
-                curr_state <= Idle;
-            END IF;
         END IF;
     END PROCESS fsm;
 
