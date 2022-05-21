@@ -12,6 +12,7 @@ ENTITY ClusterController IS
         -- INPUTS FROM OUTSIDE
         --input_block : IN STD_LOGIC_VECTOR(511 DOWNTO 0);
         start : IN STD_LOGIC;
+        stop : IN STD_LOGIC;
         difficulty : IN STD_LOGIC_VECTOR(31 DOWNTO 0); -- Used as a mask (111000...000 means start with 3 zeros)
 
         clk : IN STD_LOGIC;
@@ -29,17 +30,22 @@ ENTITY ClusterController IS
         -- OUTPUT TO HASHERS
         hash_start : OUT STD_LOGIC;
         -- Cluster Top level must connect the nonce to last 32 bits of the block to the hashers
-        hash_nonces : INOUT ARR_32(N_HASHERS - 1 DOWNTO 0)
+        hash_nonces : INOUT ARR_32(N_HASHERS - 1 DOWNTO 0);
+
+
+        -- DEBUG
+        debug_state :out  ClusterControllerState
     );
 
 END ClusterController;
 
 ARCHITECTURE arch_imp OF ClusterController IS
 
-    TYPE ClusterControllerState IS (Idle, PrepareAndStart, WaitState);
     SIGNAL curr_state : ClusterControllerState;
 
 BEGIN
+
+    debug_state <= curr_state;
 
     fsm : PROCESS (clk, nReset)
         VARIABLE curr_nonce : unsigned(31 DOWNTO 0);
@@ -58,9 +64,6 @@ BEGIN
             curr_nonce := (OTHERS => '0');
         ELSIF rising_edge(clk) THEN
             -- To stop the cluster 
-            IF start = '0' THEN
-                curr_state <= Idle;
-            END IF;
             CASE curr_state IS
                 WHEN Idle =>
                     done <= '0';
@@ -102,6 +105,9 @@ BEGIN
                     END IF;
                 WHEN OTHERS => NULL;
             END CASE;
+            IF stop = '1' THEN
+                curr_state <= Idle;
+            END IF;
         END IF;
     END PROCESS fsm;
 

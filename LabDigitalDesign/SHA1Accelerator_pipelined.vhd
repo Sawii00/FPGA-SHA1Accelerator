@@ -73,6 +73,7 @@ BEGIN
             b <= x"EFCDAB89";
             c <= x"98BADCFE";
             d <= x"10325476";
+            done <= '0';
             e <= x"C3D2E1F0";
             curr_state <= Idle;
             handled_block := '0';
@@ -88,6 +89,7 @@ BEGIN
                     --curr <= curr_block;
                     handled_block := '0';
                     count := 0;
+                    done <= '0';
 
                     IF start = '1' THEN
                         curr_state <= populate_words;
@@ -220,7 +222,6 @@ BEGIN
                     done <= '1';
                     IF start = '0' THEN
                         curr_state <= Idle;
-                        done <= '0';
                     END IF;
                 WHEN OTHERS => NULL;
             END CASE;
