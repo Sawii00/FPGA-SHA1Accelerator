@@ -53,7 +53,7 @@ BEGIN
     BEGIN
         IF nReset = '0' THEN
             curr_state <= Idle;
-            done <= '0';
+            done <= '1';
             nonce <= (OTHERS => '0');
             hash <= (OTHERS => '0');
             hash_start <= '0';
@@ -64,9 +64,9 @@ BEGIN
         ELSIF rising_edge(clk) THEN
             CASE curr_state IS
                 WHEN Idle =>
-                    done <= '0';
-                    nonce <= (OTHERS => '0');
-                    hash <= (OTHERS => '0');
+                    done <= '1';
+                    --nonce <= (OTHERS => '0');
+                    --hash <= (OTHERS => '0');
                     hash_start <= '0';
                     hash_nonces <= (OTHERS => (OTHERS => '0'));
                     correct_nonce := (OTHERS => '0');
@@ -74,6 +74,7 @@ BEGIN
                     curr_nonce := (OTHERS => '0');
                     IF start = '1' THEN
                         curr_state <= PrepareAndStart;
+                        done <= '0';
                         -- Save block? Probably not
                     END IF;
                 WHEN PrepareAndStart =>
