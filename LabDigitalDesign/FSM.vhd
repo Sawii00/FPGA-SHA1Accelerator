@@ -8,113 +8,112 @@ ENTITY FSM IS
         -- Parameters of Axi Slave Bus Interface S00_AXI
         C_S00_AXI_DATA_WIDTH : INTEGER := 32;
         C_S00_AXI_ADDR_WIDTH : INTEGER := 5;
-        C_NUM_REGISTERS : INTEGER := 5;
+        C_NUM_REGISTERS      : INTEGER := 5;
         -- Parameters of Axi Master Bus Interface M00_AXI
         C_M00_AXI_ADDR_WIDTH : INTEGER := 32;
         C_M00_AXI_DATA_WIDTH : INTEGER := 32;
 
-        CLUSTER_COUNT : INTEGER := 2
+        CLUSTER_COUNT        : INTEGER := 2
     );
     PORT (
 
         -- inputs
-        nReset : IN STD_LOGIC;
-        clk : IN STD_LOGIC;
+        nReset         : IN STD_LOGIC;
+        clk            : IN STD_LOGIC;
 
-        register_file : IN TReg;
+        register_file  : IN TReg;
 
-        result : IN STD_LOGIC_VECTOR(C_M00_AXI_DATA_WIDTH - 1 DOWNTO 0);
+        result         : IN STD_LOGIC_VECTOR(C_M00_AXI_DATA_WIDTH - 1 DOWNTO 0);
         finished_write : IN STD_LOGIC;
-        finished_read : IN STD_LOGIC;
+        finished_read  : IN STD_LOGIC;
 
         -- outputs 
-        read : OUT STD_LOGIC;
-        write : OUT STD_LOGIC;
-        address : OUT STD_LOGIC_VECTOR(C_M00_AXI_ADDR_WIDTH - 1 DOWNTO 0);
-        data_value : OUT STD_LOGIC_VECTOR(C_M00_AXI_DATA_WIDTH - 1 DOWNTO 0);
+        read           : OUT STD_LOGIC;
+        write          : OUT STD_LOGIC;
+        address        : OUT STD_LOGIC_VECTOR(C_M00_AXI_ADDR_WIDTH - 1 DOWNTO 0);
+        data_value     : OUT STD_LOGIC_VECTOR(C_M00_AXI_DATA_WIDTH - 1 DOWNTO 0);
 
-        index : OUT STD_LOGIC_VECTOR(C_NUM_REGISTERS - 1 DOWNTO 0);
-        reg_val : OUT STD_LOGIC_VECTOR(C_M00_AXI_DATA_WIDTH - 1 DOWNTO 0);
+        index          : OUT STD_LOGIC_VECTOR(C_NUM_REGISTERS - 1 DOWNTO 0);
+        reg_val        : OUT STD_LOGIC_VECTOR(C_S00_AXI_DATA_WIDTH - 1 DOWNTO 0);
         -- INPUT FROM CLUSTERS
-        cluster_done : IN STD_LOGIC_VECTOR(CLUSTER_COUNT - 1 DOWNTO 0);
+        cluster_done   : IN STD_LOGIC_VECTOR(CLUSTER_COUNT - 1 DOWNTO 0);
         cluster_hashes : IN ARR_160(CLUSTER_COUNT - 1 DOWNTO 0);
         cluster_nonces : IN ARR_32(CLUSTER_COUNT - 1 DOWNTO 0);
         -- OUTPUT TO CLUSTER
         cluster_blocks : OUT ARR_512(CLUSTER_COUNT - 1 DOWNTO 0);
-        cluster_start : OUT STD_LOGIC_VECTOR(CLUSTER_COUNT - 1 DOWNTO 0)
+        cluster_start  : OUT STD_LOGIC_VECTOR(CLUSTER_COUNT - 1 DOWNTO 0)
     );
 END FSM;
 
 ARCHITECTURE arch_imp OF FSM IS
     --TYPE TReg IS ARRAY (C_NUM_REGISTERS - 1 DOWNTO 0) OF STD_LOGIC_VECTOR(C_M00_AXI_DATA_WIDTH - 1 DOWNTO 0);
     CONSTANT C_INDEX_BLOCK_ADDRESS : INTEGER := 0;
-    CONSTANT C_INDEX_N_BLOCKS : INTEGER := 1;
-    CONSTANT C_INDEX_DIFFICULTY : INTEGER := 2;
-    CONSTANT C_INDEX_START : INTEGER := 3;
+    CONSTANT C_INDEX_N_BLOCKS      : INTEGER := 1;
+    CONSTANT C_INDEX_DIFFICULTY    : INTEGER := 2;
+    CONSTANT C_INDEX_START         : INTEGER := 3;
     --CONSTANT C_INDEX_STOP : INTEGER := 4;
-    CONSTANT C_INDEX_DONE : INTEGER := 5;
-    CONSTANT C_INDEX_RESULT_ADDR : INTEGER := 6;
+    CONSTANT C_INDEX_DONE          : INTEGER := 5;
+    CONSTANT C_INDEX_RESULT_ADDR   : INTEGER := 6;
 
     TYPE FSMState IS (IDLE, state_1, state_2, state_3, wait_all, block_wb, block_wb2, prepare_block_wb, prepare_block_wb2);
-    SIGNAL curr_state : FSMState;
+    SIGNAL curr_state                  : FSMState;
 
-    ----------------------------------------------------------------------- TODO: CONVERT TO VARIABLES THOSE THAT ARE SET IN THE FOR LOOP
-    SIGNAL curr_block : unsigned(7 DOWNTO 0);
-    SIGNAL assigned_block : arr_8(CLUSTER_COUNT - 1 DOWNTO 0);
-    SIGNAL busy_bitmask : STD_LOGIC_VECTOR(CLUSTER_COUNT - 1 DOWNTO 0);
-    SIGNAL fetched_block : STD_LOGIC_VECTOR(511 DOWNTO 0);
+    SIGNAL curr_block                  : unsigned(7 DOWNTO 0);
+    SIGNAL assigned_block              : arr_8(CLUSTER_COUNT - 1 DOWNTO 0);
+    SIGNAL busy_bitmask                : STD_LOGIC_VECTOR(CLUSTER_COUNT - 1 DOWNTO 0);
+    SIGNAL fetched_block               : STD_LOGIC_VECTOR(511 DOWNTO 0);
     -- We let it overflow
-    SIGNAL block_offset : unsigned(2 DOWNTO 0);
+    SIGNAL block_offset                : unsigned(2 DOWNTO 0);
 
-    SIGNAL payload : STD_LOGIC_VECTOR(192 DOWNTO 0); -- hash + nonce
+    SIGNAL payload                     : STD_LOGIC_VECTOR(191 DOWNTO 0); -- hash + nonce
     SIGNAL curr_cluster_being_serviced : INTEGER;
 
 BEGIN
     fsm : PROCESS (clk, nReset)
-        VARIABLE cluster_finished : INTEGER;
+        VARIABLE cluster_finished  : INTEGER;
         VARIABLE cluster_available : INTEGER;
     BEGIN
         IF rising_edge(clk) THEN
             IF nReset = '0' THEN
-                payload <= (OTHERS => '0');
-                curr_state <= Idle;
+                payload                     <= (OTHERS => '0');
+                curr_state                  <= Idle;
                 curr_cluster_being_serviced <= 0;
-                assigned_block <= (OTHERS => (OTHERS => '0'));
-                busy_bitmask <= (OTHERS => '0');
-                curr_block <= (OTHERS => '0');
-                address <= (OTHERS => '0');
-                data_value <= (OTHERS => '0');
-                read <= '0';
-                block_offset <= "000";
-                write <= '0';
-                index <= STD_LOGIC_VECTOR(to_unsigned(C_INDEX_DONE, index'length));
-                reg_val <= x"00000001";
-                fetched_block <= (OTHERS => '0');
+                assigned_block              <= (OTHERS => (OTHERS => '0'));
+                busy_bitmask                <= (OTHERS => '0');
+                curr_block                  <= (OTHERS => '0');
+                address                     <= (OTHERS => '0');
+                data_value                  <= (OTHERS => '0');
+                read                        <= '0';
+                block_offset                <= "000";
+                write                       <= '0';
+                index                       <= STD_LOGIC_VECTOR(to_unsigned(C_INDEX_DONE, index'length));
+                reg_val                     <= x"00000001";
+                fetched_block               <= (OTHERS => '0');
             ELSE
                 CASE(curr_state) IS
-                    WHEN Idle =>
-                    address <= (OTHERS => '0');
+                    WHEN Idle                              =>
+                    address                     <= (OTHERS => '0');
                     curr_cluster_being_serviced <= 0;
-                    block_offset <= "000";
-                    payload <= (OTHERS => '0');
-                    fetched_block <= (OTHERS => '0');
-                    data_value <= (OTHERS => '0');
-                    read <= '0';
-                    write <= '0';
-                    index <= STD_LOGIC_VECTOR(to_unsigned(C_INDEX_DONE, index'length));
-                    reg_val <= x"00000001";
-                    assigned_block <= (OTHERS => (OTHERS => '0'));
-                    busy_bitmask <= (OTHERS => '0');
-                    curr_block <= (OTHERS => '0');
+                    block_offset                <= "000";
+                    payload                     <= (OTHERS => '0');
+                    fetched_block               <= (OTHERS => '0');
+                    data_value                  <= (OTHERS => '0');
+                    read                        <= '0';
+                    write                       <= '0';
+                    index                       <= STD_LOGIC_VECTOR(to_unsigned(C_INDEX_DONE, index'length));
+                    reg_val                     <= x"00000001";
+                    assigned_block              <= (OTHERS => (OTHERS => '0'));
+                    busy_bitmask                <= (OTHERS => '0');
+                    curr_block                  <= (OTHERS => '0');
                     IF register_file(C_INDEX_START)(0) = '1' THEN
-                        index <= STD_LOGIC_VECTOR(to_unsigned(C_INDEX_DONE, index'length));
-                        reg_val <= x"00000000";
+                        index      <= STD_LOGIC_VECTOR(to_unsigned(C_INDEX_DONE, index'length));
+                        reg_val    <= x"00000000";
                         curr_state <= state_1;
                     END IF;
                     WHEN state_1 =>
                     IF curr_block < unsigned(register_file(C_INDEX_N_BLOCKS)) THEN
-                        address <= STD_LOGIC_VECTOR(unsigned(register_file(C_INDEX_BLOCK_ADDRESS)) + shift_left(curr_block, 6));
-                        read <= '1';
+                        address    <= STD_LOGIC_VECTOR(unsigned(register_file(C_INDEX_BLOCK_ADDRESS)) + shift_left(curr_block, 6));
+                        read       <= '1';
                         curr_state <= state_2;
                     ELSE
                         curr_state <= wait_all;
@@ -122,19 +121,19 @@ BEGIN
                     WHEN state_2 =>
                     IF finished_read = '1' THEN
                         -- Careful timing of master read 
-                        address <= STD_LOGIC_VECTOR(unsigned(register_file(C_INDEX_BLOCK_ADDRESS)) + shift_left(curr_block, 6) + shift_left(block_offset, 3));
-                        block_offset <= block_offset + 1;
+                        address                                                                                                                <= STD_LOGIC_VECTOR(unsigned(register_file(C_INDEX_BLOCK_ADDRESS)) + shift_left(curr_block, 6) + shift_left(block_offset, 3));
+                        block_offset                                                                                                           <= block_offset + 1;
                         -- Optimize if necessary
                         fetched_block(511 - to_integer(shift_left(block_offset, 6)) DOWNTO 511 - 63 - to_integer(shift_left(block_offset, 6))) <= result;
                         IF block_offset = "000" THEN
                             -- We assembled the whole block
                             curr_state <= state_3;
-                            read <= '0';
+                            read       <= '0';
                         END IF;
                     END IF;
                     WHEN state_3 =>
                     cluster_available := - 1;
-                    cluster_finished := - 1;
+                    cluster_finished  := - 1;
                     FOR cluster_id IN 0 TO CLUSTER_COUNT - 1 LOOP
                         -- This does not work since we execute the following snippet for every cluster and thus will overwrite the previous values.
                         -- Maybe it's ok if we are fine with always picking the latest cluster available (in terms of id)
@@ -150,36 +149,36 @@ BEGIN
                     IF cluster_available /= (-1) THEN
                         cluster_blocks(cluster_available) <= fetched_block;
                         assigned_block(cluster_available) <= STD_LOGIC_VECTOR(curr_block);
-                        busy_bitmask(cluster_available) <= '1';
-                        curr_block <= curr_block + 1;
-                        cluster_start(cluster_available) <= '1';
+                        busy_bitmask(cluster_available)   <= '1';
+                        curr_block                        <= curr_block + 1;
+                        cluster_start(cluster_available)  <= '1';
                         -- NOTE: when do we de-set cluster_start??????
-                        curr_state <= state_1;
+                        curr_state                        <= state_1;
                     ELSIF cluster_finished /= (-1) THEN
-                        curr_state <= prepare_block_wb;
-                        payload(192 DOWNTO 32) <= cluster_hashes(cluster_finished);
-                        payload(31 DOWNTO 0) <= cluster_nonces(cluster_finished);
+                        curr_state                  <= prepare_block_wb;
+                        payload(191 DOWNTO 32)      <= cluster_hashes(cluster_finished);
+                        payload(31 DOWNTO 0)        <= cluster_nonces(cluster_finished);
                         curr_cluster_being_serviced <= cluster_finished;
-                        block_offset <= "000";
+                        block_offset                <= "000";
                     END IF;
                     WHEN prepare_block_wb =>
-                    write <= '1';
-                    data_value <= payload(192 - to_integer(shift_left(block_offset, 6)) DOWNTO 192 - 63 - to_integer(shift_left(block_offset, 6)));
-                    address <= STD_LOGIC_VECTOR(unsigned(register_file(C_INDEX_RESULT_ADDR)) + shift_left(unsigned(assigned_block(curr_cluster_being_serviced)), 2) + shift_left(unsigned(assigned_block(curr_cluster_being_serviced)), 1) + shift_left(block_offset, 2));
+                    write        <= '1';
+                    data_value   <= payload(191 - to_integer(shift_left(block_offset, 6)) DOWNTO 191 - 63 - to_integer(shift_left(block_offset, 6)));
+                    address      <= STD_LOGIC_VECTOR(unsigned(register_file(C_INDEX_RESULT_ADDR)) + shift_left(unsigned(assigned_block(curr_cluster_being_serviced)), 2) + shift_left(unsigned(assigned_block(curr_cluster_being_serviced)), 1) + shift_left(block_offset, 2));
                     block_offset <= block_offset + 1;
-                    curr_state <= block_wb;
+                    curr_state   <= block_wb;
                     WHEN block_wb =>
                     IF finished_write = '1' THEN
                         IF block_offset = "011" THEN
                             -- when finished
-                            busy_bitmask(curr_cluster_being_serviced) <= '0';
+                            busy_bitmask(curr_cluster_being_serviced)   <= '0';
                             assigned_block(curr_cluster_being_serviced) <= (OTHERS => '0');
-                            curr_state <= state_3;
-                            write <= '0';
+                            curr_state                                  <= state_3;
+                            write                                       <= '0';
                         ELSE
-                            write <= '1';
-                            data_value <= payload(192 - to_integer(shift_left(block_offset, 6)) DOWNTO 192 - 63 - to_integer(shift_left(block_offset, 6)));
-                            address <= STD_LOGIC_VECTOR(unsigned(register_file(C_INDEX_RESULT_ADDR)) + shift_left(unsigned(assigned_block(curr_cluster_being_serviced)), 2) + shift_left(unsigned(assigned_block(curr_cluster_being_serviced)), 1) + shift_left(block_offset , 2));
+                            write        <= '1';
+                            data_value   <= payload(191 - to_integer(shift_left(block_offset, 6)) DOWNTO 191 - 63 - to_integer(shift_left(block_offset, 6)));
+                            address      <= STD_LOGIC_VECTOR(unsigned(register_file(C_INDEX_RESULT_ADDR)) + shift_left(unsigned(assigned_block(curr_cluster_being_serviced)), 2) + shift_left(unsigned(assigned_block(curr_cluster_being_serviced)), 1) + shift_left(block_offset, 2));
                             block_offset <= block_offset + 1;
                         END IF;
                     END IF;
@@ -191,31 +190,31 @@ BEGIN
                             cluster_finished := cluster_id;
                         END IF;
                     END LOOP;
-                    IF cluster_finished /= -1 THEN
-                        curr_state <= prepare_block_wb2;
-                        payload(192 DOWNTO 32) <= cluster_hashes(cluster_finished);
-                        payload(31 DOWNTO 0) <= cluster_nonces(cluster_finished);
+                    IF cluster_finished /= - 1 THEN
+                        curr_state                  <= prepare_block_wb2;
+                        payload(191 DOWNTO 32)      <= cluster_hashes(cluster_finished);
+                        payload(31 DOWNTO 0)        <= cluster_nonces(cluster_finished);
                         curr_cluster_being_serviced <= cluster_finished;
-                        block_offset <= "000";
+                        block_offset                <= "000";
                     END IF;
                     WHEN prepare_block_wb2 =>
-                    write <= '1';
-                    data_value <= payload(192 - to_integer(shift_left(block_offset, 6)) DOWNTO 192 - 63 - to_integer(shift_left(block_offset , 6)));
-                    address <= STD_LOGIC_VECTOR(unsigned(register_file(C_INDEX_RESULT_ADDR)) + shift_left(unsigned(assigned_block(curr_cluster_being_serviced)) , 2) + shift_left(unsigned(assigned_block(curr_cluster_being_serviced)) , 1) + shift_left(block_offset , 2));
+                    write        <= '1';
+                    data_value   <= payload(191 - to_integer(shift_left(block_offset, 6)) DOWNTO 191 - 63 - to_integer(shift_left(block_offset, 6)));
+                    address      <= STD_LOGIC_VECTOR(unsigned(register_file(C_INDEX_RESULT_ADDR)) + shift_left(unsigned(assigned_block(curr_cluster_being_serviced)), 2) + shift_left(unsigned(assigned_block(curr_cluster_being_serviced)), 1) + shift_left(block_offset, 2));
                     block_offset <= block_offset + 1;
-                    curr_state <= block_wb2;
+                    curr_state   <= block_wb2;
                     WHEN block_wb2 =>
                     IF finished_write = '1' THEN
                         IF block_offset = "011" THEN
                             -- when finished
-                            busy_bitmask(curr_cluster_being_serviced) <= '0';
+                            busy_bitmask(curr_cluster_being_serviced)   <= '0';
                             assigned_block(curr_cluster_being_serviced) <= (OTHERS => '0');
-                            curr_state <= wait_all;
-                            write <= '0';
+                            curr_state                                  <= wait_all;
+                            write                                       <= '0';
                         ELSE
-                            write <= '1';
-                            data_value <= payload(192 - to_integer(shift_left(block_offset, 6)) DOWNTO 192 - 63 - to_integer(shift_left(block_offset , 6)));
-                            address <= STD_LOGIC_VECTOR(unsigned(register_file(C_INDEX_RESULT_ADDR)) + shift_left(unsigned(assigned_block(curr_cluster_being_serviced)), 2) + shift_left(unsigned(assigned_block(curr_cluster_being_serviced)) , 1) + shift_left(block_offset , 2));
+                            write        <= '1';
+                            data_value   <= payload(191 - to_integer(shift_left(block_offset, 6)) DOWNTO 191 - 63 - to_integer(shift_left(block_offset, 6)));
+                            address      <= STD_LOGIC_VECTOR(unsigned(register_file(C_INDEX_RESULT_ADDR)) + shift_left(unsigned(assigned_block(curr_cluster_being_serviced)), 2) + shift_left(unsigned(assigned_block(curr_cluster_being_serviced)), 1) + shift_left(block_offset, 2));
                             block_offset <= block_offset + 1;
                         END IF;
                     END IF;
