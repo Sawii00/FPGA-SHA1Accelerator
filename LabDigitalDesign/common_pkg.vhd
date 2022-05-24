@@ -10,5 +10,6 @@ package common_utils_pkg is
     TYPE ARR_32 IS ARRAY (natural range <>) OF STD_LOGIC_VECTOR(31 downto 0);
     TYPE ARR_160 IS ARRAY (natural range <>) OF STD_LOGIC_VECTOR(159 downto 0);
     TYPE ARR_512 IS ARRAY (natural range <>) OF STD_LOGIC_VECTOR(511 downto 0);
+    TYPE FSMState IS (IDLE, state_1, state_2, state_3, wait_all, block_wb, block_wb2, prepare_block_wb, prepare_block_wb2);
 end package;
     

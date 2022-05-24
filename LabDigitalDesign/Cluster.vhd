@@ -21,15 +21,15 @@ ENTITY Cluster IS
         -- OUTPUTS
         done : OUT STD_LOGIC;
         hash : OUT STD_LOGIC_VECTOR(159 DOWNTO 0);
-        nonce : OUT STD_LOGIC_VECTOR(31 DOWNTO 0);
+        nonce : OUT STD_LOGIC_VECTOR(31 DOWNTO 0)
 
         -- DEBUG
-        debug_state : OUT ClusterControllerState;
-        debug_hash_start : OUT STD_LOGIC;
-        debug_hash_nonces : OUT arr_32(N_HASHERS - 1 DOWNTO 0);
-        debug_hash_done : OUT STD_LOGIC;
-        debug_hash_done_all : OUT STD_LOGIC_VECTOR(N_HASHERS - 1 DOWNTO 0);
-        debug_reset_system : OUT STD_LOGIC
+        --debug_state : OUT ClusterControllerState;
+        --debug_hash_start : OUT STD_LOGIC;
+        --debug_hash_nonces : OUT arr_32(N_HASHERS - 1 DOWNTO 0);
+        --debug_hash_done : OUT STD_LOGIC;
+        --debug_hash_done_all : OUT STD_LOGIC_VECTOR(N_HASHERS - 1 DOWNTO 0);
+        --debug_reset_system : OUT STD_LOGIC
 
     );
 
@@ -50,12 +50,12 @@ ARCHITECTURE arch_imp OF Cluster IS
     SIGNAL debug_state_fsm : ClusterControllerState;
 
 BEGIN
-    debug_hash_nonces <= hash_nonces;
-    debug_state <= debug_state_fsm;
-    debug_hash_start <= hash_start;
-    debug_hash_done <= hash_done_or;
-    debug_hash_done_all <= hash_done;
-    debug_reset_system <= reset_system;
+    --debug_hash_nonces <= hash_nonces;
+    --debug_state <= debug_state_fsm;
+    --debug_hash_start <= hash_start;
+    --debug_hash_done <= hash_done_or;
+    --debug_hash_done_all <= hash_done;
+    --debug_reset_system <= reset_system;
 
     reset_system <= nReset AND NOT stop;
 
