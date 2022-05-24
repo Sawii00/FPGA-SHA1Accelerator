@@ -94,7 +94,6 @@ BEGIN
                             END IF;
                         END LOOP;
                         IF correct_hash_id /= N_HASHERS THEN
-                            done <= '1';
                             nonce <= correct_nonce;
                             hash <= hash_results(correct_hash_id);
                             curr_state <= Idle;
