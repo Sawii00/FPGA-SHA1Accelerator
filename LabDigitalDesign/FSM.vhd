@@ -41,15 +41,15 @@ ENTITY FSM IS
         cluster_nonces                    : IN ARR_32(CLUSTER_COUNT - 1 DOWNTO 0);
         -- OUTPUT TO CLUSTER
         cluster_blocks                    : OUT ARR_512(CLUSTER_COUNT - 1 DOWNTO 0);
-        cluster_start                     : OUT STD_LOGIC_VECTOR(CLUSTER_COUNT - 1 DOWNTO 0);
+        cluster_start                     : OUT STD_LOGIC_VECTOR(CLUSTER_COUNT - 1 DOWNTO 0)
         -- DEBUG
 
-        debug_state                       : OUT FSMState;
-        debug_busybitmask                 : OUT STD_LOGIC_VECTOR(CLUSTER_COUNT - 1 DOWNTO 0);
-        debug_block_offset                : OUT unsigned(2 DOWNTO 0);
-        debug_payload                     : OUT STD_LOGIC_VECTOR(191 DOWNTO 0); -- hash + nonce
-        debug_fetched_block               : OUT STD_LOGIC_VECTOR(511 DOWNTO 0);
-        debug_curr_cluster_being_serviced : OUT INTEGER
+        --debug_state                       : OUT FSMState;
+        --debug_busybitmask                 : OUT STD_LOGIC_VECTOR(CLUSTER_COUNT - 1 DOWNTO 0);
+        --debug_block_offset                : OUT unsigned(2 DOWNTO 0);
+        --debug_payload                     : OUT STD_LOGIC_VECTOR(191 DOWNTO 0); -- hash + nonce
+        --debug_fetched_block               : OUT STD_LOGIC_VECTOR(511 DOWNTO 0);
+        --debug_curr_cluster_being_serviced : OUT INTEGER
     );
 END FSM;
 
@@ -79,12 +79,12 @@ ARCHITECTURE arch_imp OF FSM IS
 
 BEGIN
 
-    debug_state                       <= curr_state;
-    debug_busybitmask                 <= busy_bitmask;
-    debug_block_offset                <= block_offset;
-    debug_payload                     <= payload;
-    debug_curr_cluster_being_serviced <= curr_cluster_being_serviced;
-    debug_fetched_block               <= fetched_block;
+    --debug_state                       <= curr_state;
+    --debug_busybitmask                 <= busy_bitmask;
+    --debug_block_offset                <= block_offset;
+    --debug_payload                     <= payload;
+    --debug_curr_cluster_being_serviced <= curr_cluster_being_serviced;
+    --debug_fetched_block               <= fetched_block;
 
     fsm : PROCESS (clk, nReset)
         VARIABLE cluster_finished  : INTEGER;

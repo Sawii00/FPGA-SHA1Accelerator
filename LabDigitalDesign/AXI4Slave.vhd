@@ -1,7 +1,7 @@
 LIBRARY ieee;
 USE ieee.std_logic_1164.ALL;
 USE ieee.numeric_std.ALL;
-USE work.axi_package.ALL;
+USE work.common_utils_pkg.ALL;
 
 ENTITY AXI4Slave IS
     GENERIC (
