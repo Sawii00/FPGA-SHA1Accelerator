@@ -44,6 +44,7 @@ ARCHITECTURE arch_imp OF fsm_tb IS
     SIGNAL debug_state                       : FSMState;
     SIGNAL debug_busybitmask                 : STD_LOGIC_VECTOR(CLUSTER_COUNT - 1 DOWNTO 0);
     SIGNAL debug_block_offset                : unsigned(2 DOWNTO 0);
+    SIGNAL debug_curr_block: unsigned(7 DOWNTO 0);
     SIGNAL debug_payload                     : STD_LOGIC_VECTOR(191 DOWNTO 0); -- hash + nonce
     SIGNAL debug_curr_cluster_being_serviced : INTEGER;
     SIGNAL debug_fetched_block               : STD_LOGIC_VECTOR(511 DOWNTO 0);
@@ -79,6 +80,7 @@ BEGIN
             debug_block_offset                => debug_block_offset,
             debug_payload                     => debug_payload,
             debug_curr_cluster_being_serviced => debug_curr_cluster_being_serviced,
+            debug_curr_block => debug_curr_block,
             debug_fetched_block               => debug_fetched_block
         );
     clusters : FOR i IN 0 TO CLUSTER_COUNT - 1 GENERATE

@@ -94,6 +94,10 @@ BEGIN
                         END IF;
                     WHEN Wait_state =>
                         m00_axi_bready <= '1';
+                        -- Added
+                        finished_write <= '0';
+                        finished_read <= '0';
+                        ---------
                         m_state <= Idle;
                     WHEN Read_state =>
                         IF m00_axi_arready = '1' THEN

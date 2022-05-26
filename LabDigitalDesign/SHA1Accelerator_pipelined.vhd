@@ -35,7 +35,7 @@ ARCHITECTURE arch_imp OF SHA1Accelerator_pipelined IS
 
     -- Make sure they are multiple of 4 
     CONSTANT num_op_cycle_word_population : INTEGER := 16;
-    CONSTANT num_op_cycle_main_loop : INTEGER := 20;
+    CONSTANT num_op_cycle_main_loop : INTEGER := 1;
 BEGIN
 
     --a_o <= a;
@@ -131,7 +131,7 @@ BEGIN
                             -- temp = left_rotate(a, 5)
                             temp(31 DOWNTO 5) := a_var(26 DOWNTO 0);
                             temp(4 DOWNTO 0) := a_var(31 DOWNTO 27);
-                            temp := (temp + f) + (e_var + w) + k;
+                            temp := (temp + f) + (e_var + w + k);
                             e_var := d_var;
                             d_var := c_var;
                             -- c = left_rotate(b, 30);
@@ -148,7 +148,7 @@ BEGIN
                             -- temp = left_rotate(a, 5)
                             temp(31 DOWNTO 5) := a_var(26 DOWNTO 0);
                             temp(4 DOWNTO 0) := a_var(31 DOWNTO 27);
-                            temp := (temp + f) + (e_var + w) + k;
+                            temp := (temp + f) + (e_var + w + k);
                             e_var := d_var;
                             d_var := c_var;
                             -- c = left_rotate(b, 30);
@@ -165,7 +165,7 @@ BEGIN
                             -- temp = left_rotate(a, 5)
                             temp(31 DOWNTO 5) := a_var(26 DOWNTO 0);
                             temp(4 DOWNTO 0) := a_var(31 DOWNTO 27);
-                            temp := (temp + f) + (e_var + w) + k;
+                            temp := (temp + f) + (e_var + w + k);
                             e_var := d_var;
                             d_var := c_var;
                             -- c = left_rotate(b, 30);
@@ -182,7 +182,7 @@ BEGIN
                             -- temp = left_rotate(a, 5)
                             temp(31 DOWNTO 5) := a_var(26 DOWNTO 0);
                             temp(4 DOWNTO 0) := a_var(31 DOWNTO 27);
-                            temp := (temp + f) + (e_var + w) + k;
+                            temp := (temp + f) + (e_var + w + k);
                             e_var := d_var;
                             d_var := c_var;
                             -- c = left_rotate(b, 30);

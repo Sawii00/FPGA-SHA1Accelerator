@@ -3,6 +3,11 @@ USE ieee.std_logic_1164.ALL;
 USE ieee.numeric_std.ALL;
 USE work.common_utils_pkg.ALL;
 
+
+
+-- TODO: - what about timeout if there is no way with the counter to yield such hash
+--       - 
+
 ENTITY TopLevel IS
     GENERIC (
         -- Users to add parameters here
@@ -18,7 +23,8 @@ ENTITY TopLevel IS
         C_M00_AXI_ADDR_WIDTH : INTEGER := 32;
         C_M00_AXI_DATA_WIDTH : INTEGER := 64;
 
-        CLUSTER_COUNT        : INTEGER := 2
+        CLUSTER_COUNT        : INTEGER := 2;
+        N_HASHERS : INTEGER := 2
     );
     PORT (
 
@@ -89,7 +95,7 @@ ARCHITECTURE arch_imp OF TopLevel IS
     SIGNAL data_value_sig          : STD_LOGIC_VECTOR(C_M00_AXI_DATA_WIDTH - 1 DOWNTO 0);
 
     SIGNAL index_sig               : STD_LOGIC_VECTOR(C_NUM_REGISTERS - 1 DOWNTO 0);
-    SIGNAL reg_val_sig             : STD_LOGIC_VECTOR(C_M00_AXI_DATA_WIDTH - 1 DOWNTO 0);
+    SIGNAL reg_val_sig             : STD_LOGIC_VECTOR(C_S00_AXI_DATA_WIDTH - 1 DOWNTO 0);
 
     SIGNAL cluster_done_signal     : STD_LOGIC_VECTOR(CLUSTER_COUNT - 1 DOWNTO 0);
     SIGNAL cluster_hashes_signal   : ARR_160(CLUSTER_COUNT - 1 DOWNTO 0);
@@ -212,6 +218,7 @@ BEGIN
 
     clusters : FOR i IN 0 TO CLUSTER_COUNT - 1 GENERATE
         hasher : ENTITY work.Cluster
+            GENERIC MAP( N_HASHERS =>  N_HASHERS)
             PORT MAP(
                 clk         => clk,
                 nReset      => nReset,

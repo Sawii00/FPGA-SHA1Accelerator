@@ -41,15 +41,16 @@ ENTITY FSM IS
         cluster_nonces                    : IN ARR_32(CLUSTER_COUNT - 1 DOWNTO 0);
         -- OUTPUT TO CLUSTER
         cluster_blocks                    : OUT ARR_512(CLUSTER_COUNT - 1 DOWNTO 0);
-        cluster_start                     : OUT STD_LOGIC_VECTOR(CLUSTER_COUNT - 1 DOWNTO 0)
+        cluster_start                     : OUT STD_LOGIC_VECTOR(CLUSTER_COUNT - 1 DOWNTO 0);
         -- DEBUG
 
-        --debug_state                       : OUT FSMState;
-        --debug_busybitmask                 : OUT STD_LOGIC_VECTOR(CLUSTER_COUNT - 1 DOWNTO 0);
-        --debug_block_offset                : OUT unsigned(2 DOWNTO 0);
-        --debug_payload                     : OUT STD_LOGIC_VECTOR(191 DOWNTO 0); -- hash + nonce
-        --debug_fetched_block               : OUT STD_LOGIC_VECTOR(511 DOWNTO 0);
-        --debug_curr_cluster_being_serviced : OUT INTEGER
+        debug_state                       : OUT FSMState;
+        debug_busybitmask                 : OUT STD_LOGIC_VECTOR(CLUSTER_COUNT - 1 DOWNTO 0);
+        debug_block_offset                : OUT unsigned(2 DOWNTO 0);
+        debug_payload                     : OUT STD_LOGIC_VECTOR(191 DOWNTO 0); -- hash + nonce
+        debug_fetched_block               : OUT STD_LOGIC_VECTOR(511 DOWNTO 0);
+        debug_curr_block                  : OUT unsigned(7 DOWNTO 0);
+        debug_curr_cluster_being_serviced : OUT INTEGER
     );
 END FSM;
 
@@ -79,12 +80,13 @@ ARCHITECTURE arch_imp OF FSM IS
 
 BEGIN
 
-    --debug_state                       <= curr_state;
-    --debug_busybitmask                 <= busy_bitmask;
-    --debug_block_offset                <= block_offset;
-    --debug_payload                     <= payload;
-    --debug_curr_cluster_being_serviced <= curr_cluster_being_serviced;
-    --debug_fetched_block               <= fetched_block;
+    debug_state                       <= curr_state;
+    debug_busybitmask                 <= busy_bitmask;
+    debug_block_offset                <= block_offset;
+    debug_payload                     <= payload;
+    debug_curr_cluster_being_serviced <= curr_cluster_being_serviced;
+    debug_fetched_block               <= fetched_block;
+    debug_curr_block                  <= curr_block;
 
     fsm : PROCESS (clk, nReset)
         VARIABLE cluster_finished  : INTEGER;
@@ -139,9 +141,10 @@ BEGIN
                     index   <= STD_LOGIC_VECTOR(to_unsigned(C_INDEX_START, index'length));
                     reg_val <= x"00000000";
                     IF curr_block < unsigned(register_file(C_INDEX_N_BLOCKS)) THEN
-                        address      <= STD_LOGIC_VECTOR(unsigned(register_file(C_INDEX_BLOCK_ADDRESS)) + resize(curr_block, 16) * 64 );
+                        address    <= STD_LOGIC_VECTOR(unsigned(register_file(C_INDEX_BLOCK_ADDRESS)) + resize(curr_block, 16) * 64);
                         read       <= '1';
                         curr_state <= state_2;
+                        --block_offset <= block_offset + 1;
                     ELSE
                         curr_state <= wait_all;
                     END IF;
@@ -149,7 +152,7 @@ BEGIN
                     IF finished_read = '1' THEN
                         -- Careful timing of master read 
                         -- TODO: add to address dont recompute
-                        address      <= STD_LOGIC_VECTOR(unsigned(register_file(C_INDEX_BLOCK_ADDRESS)) + resize(curr_block, 16) * 64  + resize(block_offset, 8) * 8);
+                        address                                                                                            <= STD_LOGIC_VECTOR(unsigned(register_file(C_INDEX_BLOCK_ADDRESS)) + resize(curr_block, 16) * 64 + resize(block_offset, 8) * 8 + 8);
                         block_offset                                                                                       <= block_offset + 1;
                         -- Optimize if necessary
                         fetched_block(511 - to_integer(block_offset) * 64 DOWNTO 511 - 63 - to_integer(block_offset) * 64) <= result;
@@ -191,7 +194,7 @@ BEGIN
                     WHEN prepare_block_wb =>
                     write        <= '1';
                     data_value   <= payload(191 - to_integer(block_offset) * 64 DOWNTO 191 - 63 - to_integer(block_offset) * 64);
-                    address      <= STD_LOGIC_VECTOR(unsigned(register_file(C_INDEX_RESULT_ADDR)) + resize(unsigned(assigned_block(curr_cluster_being_serviced)), 16) * 24 + resize(unsigned(block_offset), 8) * 2);
+                    address      <= STD_LOGIC_VECTOR(unsigned(register_file(C_INDEX_RESULT_ADDR)) + resize(unsigned(assigned_block(curr_cluster_being_serviced)), 16) * 24 + resize(unsigned(block_offset), 8) * 8);
                     block_offset <= block_offset + 1;
                     curr_state   <= block_wb;
                     WHEN block_wb =>
@@ -201,12 +204,12 @@ BEGIN
                             busy_bitmask(curr_cluster_being_serviced)   <= '0';
                             assigned_block(curr_cluster_being_serviced) <= (OTHERS => '0');
                             curr_state                                  <= state_3;
-                            block_offset <= "000";
+                            block_offset                                <= "000";
                             write                                       <= '0';
                         ELSE
                             write        <= '1';
                             data_value   <= payload(191 - to_integer(block_offset) * 64 DOWNTO 191 - 63 - to_integer(block_offset) * 64);
-                            address      <= STD_LOGIC_VECTOR(unsigned(register_file(C_INDEX_RESULT_ADDR)) + resize(unsigned(assigned_block(curr_cluster_being_serviced)), 16) * 24 + resize(unsigned(block_offset), 8) * 2);
+                            address      <= STD_LOGIC_VECTOR(unsigned(register_file(C_INDEX_RESULT_ADDR)) + resize(unsigned(assigned_block(curr_cluster_being_serviced)), 16) * 24 + resize(unsigned(block_offset), 8) * 8);
                             block_offset <= block_offset + 1;
                         END IF;
                     END IF;
@@ -232,7 +235,7 @@ BEGIN
                     WHEN prepare_block_wb2 =>
                     write        <= '1';
                     data_value   <= payload(191 - to_integer(block_offset) * 64 DOWNTO 191 - 63 - to_integer(block_offset) * 64);
-                    address      <= STD_LOGIC_VECTOR(unsigned(register_file(C_INDEX_RESULT_ADDR)) + resize(unsigned(assigned_block(curr_cluster_being_serviced)), 16) * 24 + resize(unsigned(block_offset), 8) * 2);
+                    address      <= STD_LOGIC_VECTOR(unsigned(register_file(C_INDEX_RESULT_ADDR)) + resize(unsigned(assigned_block(curr_cluster_being_serviced)), 16) * 24 + resize(unsigned(block_offset), 8) * 8);
                     block_offset <= block_offset + 1;
                     curr_state   <= block_wb2;
                     WHEN block_wb2 =>
@@ -242,12 +245,12 @@ BEGIN
                             busy_bitmask(curr_cluster_being_serviced)   <= '0';
                             assigned_block(curr_cluster_being_serviced) <= (OTHERS => '0');
                             curr_state                                  <= wait_all;
-                            block_offset <= "000";
+                            block_offset                                <= "000";
                             write                                       <= '0';
                         ELSE
                             write        <= '1';
                             data_value   <= payload(191 - to_integer(block_offset) * 64 DOWNTO 191 - 63 - to_integer(block_offset) * 64);
-                            address      <= STD_LOGIC_VECTOR(unsigned(register_file(C_INDEX_RESULT_ADDR)) + resize(unsigned(assigned_block(curr_cluster_being_serviced)), 16) * 24 + resize(unsigned(block_offset), 8) * 2);
+                            address      <= STD_LOGIC_VECTOR(unsigned(register_file(C_INDEX_RESULT_ADDR)) + resize(unsigned(assigned_block(curr_cluster_being_serviced)), 16) * 24 + resize(unsigned(block_offset), 8) * 8);
                             block_offset <= block_offset + 1;
                         END IF;
                     END IF;

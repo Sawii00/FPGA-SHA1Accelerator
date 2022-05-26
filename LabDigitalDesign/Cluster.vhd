@@ -5,7 +5,7 @@ USE work.common_utils_pkg.ALL;
 
 ENTITY Cluster IS
     GENERIC (
-        N_HASHERS : INTEGER := 4
+        N_HASHERS : INTEGER := 2
     );
 
     PORT (
