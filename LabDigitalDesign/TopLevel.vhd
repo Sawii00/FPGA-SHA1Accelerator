@@ -3,8 +3,6 @@ USE ieee.std_logic_1164.ALL;
 USE ieee.numeric_std.ALL;
 USE work.common_utils_pkg.ALL;
 
-
-
 -- TODO: - what about timeout if there is no way with the counter to yield such hash
 --       - 
 
@@ -17,19 +15,21 @@ ENTITY TopLevel IS
         -- Parameters of Axi Slave Bus Interface S00_AXI
         C_S00_AXI_DATA_WIDTH : INTEGER := 32;
         C_S00_AXI_ADDR_WIDTH : INTEGER := 5;
-        C_NUM_REGISTERS      : INTEGER := 7;
+        C_NUM_REGISTERS      : INTEGER := 9;
 
         -- Parameters of Axi Master Bus Interface M00_AXI
         C_M00_AXI_ADDR_WIDTH : INTEGER := 32;
         C_M00_AXI_DATA_WIDTH : INTEGER := 64;
 
         CLUSTER_COUNT        : INTEGER := 2;
-        N_HASHERS : INTEGER := 2
+        N_HASHERS            : INTEGER := 2
     );
     PORT (
 
         clk             : IN STD_LOGIC;
         nReset          : IN STD_LOGIC;
+
+        irq             : OUT STD_LOGIC;
 
         s00_axi_awaddr  : IN STD_LOGIC_VECTOR(C_S00_AXI_ADDR_WIDTH - 1 DOWNTO 0);
         s00_axi_awprot  : IN STD_LOGIC_VECTOR(2 DOWNTO 0);
@@ -81,6 +81,8 @@ ARCHITECTURE arch_imp OF TopLevel IS
     CONSTANT C_INDEX_STOP          : INTEGER := 4;
     CONSTANT C_INDEX_DONE          : INTEGER := 5;
     CONSTANT C_INDEX_RESULT_ADDR   : INTEGER := 6;
+    CONSTANT C_INDEX_IRQ_ENABLE    : INTEGER := 7;
+    CONSTANT C_INDEX_IRQ_TOGGLE    : INTEGER := 8;
 
     SIGNAL register_file_sig       : TReg(C_NUM_REGISTERS - 1 DOWNTO 0);
 
@@ -112,6 +114,8 @@ BEGIN
     m00_axi_arprot <= (OTHERS => '0');
     m00_axi_wstrb  <= (OTHERS => '1');
 
+    irq <= (register_file_sig(C_INDEX_DONE)(0) and register_file_sig(C_INDEX_IRQ_ENABLE)(0)) and (not register_file_sig(C_INDEX_IRQ_TOGGLE)(0));
+
     slave : ENTITY work.AXI4Slave
         GENERIC MAP(
             C_S00_AXI_DATA_WIDTH => C_S00_AXI_DATA_WIDTH,
@@ -139,7 +143,7 @@ BEGIN
 
             index           => index_sig,
             reg_val         => reg_val_sig,
-
+            reset_reg => x"00000008", -- Register 8 is toggle-only
             -- outputs
             register_file   => register_file_sig
         );
@@ -218,7 +222,7 @@ BEGIN
 
     clusters : FOR i IN 0 TO CLUSTER_COUNT - 1 GENERATE
         hasher : ENTITY work.Cluster
-            GENERIC MAP( N_HASHERS =>  N_HASHERS)
+            GENERIC MAP(N_HASHERS => N_HASHERS)
             PORT MAP(
                 clk         => clk,
                 nReset      => nReset,

@@ -19,7 +19,7 @@ ENTITY SHA1Accelerator_pipelined IS
 
         -- DEBUG
         --debug_word_arr : OUT WORD_ARR;
-        --st : OUT STD_LOGIC_VECTOR(2 DOWNTO 0);
+        --st : OUT STD_LOGIC_VECTOR(3 DOWNTO 0);
         --curr : OUT STD_LOGIC_VECTOR(511 DOWNTO 0);
         --a_o, b_o, c_o, d_o, e_o : OUT STD_LOGIC_VECTOR(31 DOWNTO 0)
     );
@@ -28,13 +28,13 @@ END SHA1Accelerator_pipelined;
 
 ARCHITECTURE arch_imp OF SHA1Accelerator_pipelined IS
 
-    TYPE State IS (IDLE, setup_padding_block, wait_state, populate_words, compute_hash);
+    TYPE State IS (IDLE, setup_padding_block, wait_state, populate_words, compute_hash_20,compute_hash_40, compute_hash_60, compute_hash_80,finish_computation);
     SIGNAL a, b, c, d, e : STD_LOGIC_VECTOR(31 DOWNTO 0);
 
     SIGNAL curr_state : State;
 
     -- Make sure they are multiple of 4 
-    CONSTANT num_op_cycle_word_population : INTEGER := 16;
+    CONSTANT num_op_cycle_word_population : INTEGER := 16; -- do not exceed 16
     CONSTANT num_op_cycle_main_loop : INTEGER := 1;
 BEGIN
 
@@ -46,11 +46,15 @@ BEGIN
 
     -- DEBUG
     --WITH curr_state SELECT st <=
-        --"000" WHEN Idle,
-        --"001" WHEN populate_words,
-        --"010" WHEN compute_hash,
-        --"011" WHEN wait_state,
-        --"100" WHEN setup_padding_block;
+        --"0000" WHEN Idle,
+        --"0001" WHEN populate_words,
+        --"0010" WHEN compute_hash_20,
+        --"0011" WHEN compute_hash_40,
+        --"0100" WHEN compute_hash_60,
+        --"0101" WHEN compute_hash_80,
+        --"0110" WHEN wait_state,
+        --"0111" WHEN setup_padding_block,
+        --"1000" WHEN finish_computation;
 
     fsm : PROCESS (clk, nReset)
         VARIABLE words : WORD_ARR;
@@ -85,13 +89,12 @@ BEGIN
                     c <= x"98BADCFE";
                     d <= x"10325476";
                     e <= x"C3D2E1F0";
-                    curr_block := input_block;
-                    --curr <= curr_block;
+                    --curr <= curr_block
                     handled_block := '0';
                     count := 0;
                     done <= '0';
-
                     IF start = '1' THEN
+                        curr_block := input_block;
                         curr_state <= populate_words;
                     END IF;
                 WHEN populate_words =>
@@ -114,99 +117,112 @@ BEGIN
                         END LOOP;
                     END IF;
                     count := count + 1;
-                    IF count >= 80 / num_op_cycle_word_population THEN
-                        curr_state <= compute_hash;
+                    IF count = 80 / num_op_cycle_word_population THEN
+                        curr_state <= compute_hash_20;
                         count := 0;
                     END IF;
                     -- DEBUG
                     --debug_word_arr <= words;
-                WHEN compute_hash =>
-                    k := x"00000000";
-                    IF count < 20 / num_op_cycle_main_loop THEN
-                        FOR i IN 0 TO num_op_cycle_main_loop - 1 LOOP
-                            w := words(i + count * num_op_cycle_main_loop);
-                            k := x"5a827999";
-                            f := (b_var AND c_var) OR ((NOT b_var) AND d_var);
+                when compute_hash_20 =>
+                    FOR i IN 0 TO num_op_cycle_main_loop - 1 LOOP
+                        w := words(i + count * num_op_cycle_main_loop);
+                        k := x"5a827999";
+                        f := (b_var AND c_var) OR ((NOT b_var) AND d_var);
 
-                            -- temp = left_rotate(a, 5)
-                            temp(31 DOWNTO 5) := a_var(26 DOWNTO 0);
-                            temp(4 DOWNTO 0) := a_var(31 DOWNTO 27);
-                            temp := (temp + f) + (e_var + w + k);
-                            e_var := d_var;
-                            d_var := c_var;
-                            -- c = left_rotate(b, 30);
-                            c_var(31 DOWNTO 30) := b_var(1 DOWNTO 0);
-                            c_var(29 DOWNTO 0) := b_var(31 DOWNTO 2);
-                            b_var := a_var;
-                            a_var := temp;
-                        END LOOP;
-                    ELSIF count < 40 / num_op_cycle_main_loop THEN
-                        FOR i IN 0 TO num_op_cycle_main_loop - 1 LOOP
-                            w := words(i + count * num_op_cycle_main_loop);
-                            k := x"6ed9eba1";
-                            f := b_var XOR c_var XOR d_var;
-                            -- temp = left_rotate(a, 5)
-                            temp(31 DOWNTO 5) := a_var(26 DOWNTO 0);
-                            temp(4 DOWNTO 0) := a_var(31 DOWNTO 27);
-                            temp := (temp + f) + (e_var + w + k);
-                            e_var := d_var;
-                            d_var := c_var;
-                            -- c = left_rotate(b, 30);
-                            c_var(31 DOWNTO 30) := b_var(1 DOWNTO 0);
-                            c_var(29 DOWNTO 0) := b_var(31 DOWNTO 2);
-                            b_var := a_var;
-                            a_var := temp;
-                        END LOOP;
-                    ELSIF count < 60 / num_op_cycle_main_loop THEN
-                        FOR i IN 0 TO num_op_cycle_main_loop - 1 LOOP
-                            w := words(i + count * num_op_cycle_main_loop);
-                            k := x"8f1bbcdc";
-                            f := (b_var AND c_var) OR (b_var AND d_var) OR (c_var AND d_var);
-                            -- temp = left_rotate(a, 5)
-                            temp(31 DOWNTO 5) := a_var(26 DOWNTO 0);
-                            temp(4 DOWNTO 0) := a_var(31 DOWNTO 27);
-                            temp := (temp + f) + (e_var + w + k);
-                            e_var := d_var;
-                            d_var := c_var;
-                            -- c = left_rotate(b, 30);
-                            c_var(31 DOWNTO 30) := b_var(1 DOWNTO 0);
-                            c_var(29 DOWNTO 0) := b_var(31 DOWNTO 2);
-                            b_var := a_var;
-                            a_var := temp;
-                        END LOOP;
-                    ELSE
-                        FOR i IN 0 TO num_op_cycle_main_loop - 1 LOOP
-                            w := words(i + count * num_op_cycle_main_loop);
-                            k := x"ca62c1d6";
-                            f := b_var XOR c_var XOR d_var;
-                            -- temp = left_rotate(a, 5)
-                            temp(31 DOWNTO 5) := a_var(26 DOWNTO 0);
-                            temp(4 DOWNTO 0) := a_var(31 DOWNTO 27);
-                            temp := (temp + f) + (e_var + w + k);
-                            e_var := d_var;
-                            d_var := c_var;
-                            -- c = left_rotate(b, 30);
-                            c_var(31 DOWNTO 30) := b_var(1 DOWNTO 0);
-                            c_var(29 DOWNTO 0) := b_var(31 DOWNTO 2);
-                            b_var := a_var;
-                            a_var := temp;
-                        END LOOP;
-                    END IF;
-
+                        -- temp = left_rotate(a, 5)
+                        temp(31 DOWNTO 5) := a_var(26 DOWNTO 0);
+                        temp(4 DOWNTO 0) := a_var(31 DOWNTO 27);
+                        temp := (temp + f) + (e_var + w + k);
+                        e_var := d_var;
+                        d_var := c_var;
+                        -- c = left_rotate(b, 30);
+                        c_var(31 DOWNTO 30) := b_var(1 DOWNTO 0);
+                        c_var(29 DOWNTO 0) := b_var(31 DOWNTO 2);
+                        b_var := a_var;
+                        a_var := temp;
+                    END LOOP;
                     count := count + 1;
+                    if count = 20 / num_op_cycle_main_loop then 
+                        curr_state <= compute_hash_40;
+                        --count := 0;
+                    end if;
+                when compute_hash_40 =>
+                    FOR i IN 0 TO num_op_cycle_main_loop - 1 LOOP
+                        w := words(i + count * num_op_cycle_main_loop);
+                        k := x"6ed9eba1";
+                        f := b_var XOR c_var XOR d_var;
 
-                    IF count >= 80 / num_op_cycle_main_loop THEN
+                        -- temp = left_rotate(a, 5)
+                        temp(31 DOWNTO 5) := a_var(26 DOWNTO 0);
+                        temp(4 DOWNTO 0) := a_var(31 DOWNTO 27);
+                        temp := (temp + f) + (e_var + w + k);
+                        e_var := d_var;
+                        d_var := c_var;
+                        -- c = left_rotate(b, 30);
+                        c_var(31 DOWNTO 30) := b_var(1 DOWNTO 0);
+                        c_var(29 DOWNTO 0) := b_var(31 DOWNTO 2);
+                        b_var := a_var;
+                        a_var := temp;
+                    END LOOP;
+                    count := count + 1;
+                    if count = 40 / num_op_cycle_main_loop then 
+                        curr_state <= compute_hash_60;
+                        --count := 0;
+                    end if;
+                when compute_hash_60 =>
+                    FOR i IN 0 TO num_op_cycle_main_loop - 1 LOOP
+                        w := words(i + count * num_op_cycle_main_loop);
+                        k := x"8f1bbcdc";
+                        f := (b_var AND c_var) OR (b_var AND d_var) OR (c_var AND d_var);
+                        -- temp = left_rotate(a, 5)
+                        temp(31 DOWNTO 5) := a_var(26 DOWNTO 0);
+                        temp(4 DOWNTO 0) := a_var(31 DOWNTO 27);
+                        temp := (temp + f) + (e_var + w + k);
+                        e_var := d_var;
+                        d_var := c_var;
+                        -- c = left_rotate(b, 30);
+                        c_var(31 DOWNTO 30) := b_var(1 DOWNTO 0);
+                        c_var(29 DOWNTO 0) := b_var(31 DOWNTO 2);
+                        b_var := a_var;
+                        a_var := temp;
+                    END LOOP;
+                    count := count + 1;
+                    if count = 60 / num_op_cycle_main_loop then 
+                        curr_state <= compute_hash_80;
+                        --count := 0;
+                    end if;
+                when compute_hash_80 =>
+                    FOR i IN 0 TO num_op_cycle_main_loop - 1 LOOP
+                        w := words(i + count * num_op_cycle_main_loop);
+                        k := x"ca62c1d6";
+                        f := b_var XOR c_var XOR d_var;
+                        -- temp = left_rotate(a, 5)
+                        temp(31 DOWNTO 5) := a_var(26 DOWNTO 0);
+                        temp(4 DOWNTO 0) := a_var(31 DOWNTO 27);
+                        temp := (temp + f) + (e_var + w + k);
+                        e_var := d_var;
+                        d_var := c_var;
+                        -- c = left_rotate(b, 30);
+                        c_var(31 DOWNTO 30) := b_var(1 DOWNTO 0);
+                        c_var(29 DOWNTO 0) := b_var(31 DOWNTO 2);
+                        b_var := a_var;
+                        a_var := temp;
+                    END LOOP;
+                    count := count + 1;
+                    if count = 80 / num_op_cycle_main_loop then 
+                        curr_state <= finish_computation;
                         count := 0;
-                        a <= STD_LOGIC_VECTOR(unsigned(a) + a_var);
-                        b <= STD_LOGIC_VECTOR(unsigned(b) + b_var);
-                        c <= STD_LOGIC_VECTOR(unsigned(c) + c_var);
-                        d <= STD_LOGIC_VECTOR(unsigned(d) + d_var);
-                        e <= STD_LOGIC_VECTOR(unsigned(e) + e_var);
-                        IF handled_block = '0' THEN
-                            curr_state <= setup_padding_block;
-                        ELSE
-                            curr_state <= wait_state;
-                        END IF;
+                    end if;
+                when finish_computation => 
+                    a <= STD_LOGIC_VECTOR(unsigned(a) + a_var);
+                    b <= STD_LOGIC_VECTOR(unsigned(b) + b_var);
+                    c <= STD_LOGIC_VECTOR(unsigned(c) + c_var);
+                    d <= STD_LOGIC_VECTOR(unsigned(d) + d_var);
+                    e <= STD_LOGIC_VECTOR(unsigned(e) + e_var);
+                    IF handled_block = '0' THEN
+                        curr_state <= setup_padding_block;
+                    ELSE
+                        curr_state <= wait_state;
                     END IF;
                 WHEN setup_padding_block =>
                     curr_block(511 DOWNTO 504) := x"80";
