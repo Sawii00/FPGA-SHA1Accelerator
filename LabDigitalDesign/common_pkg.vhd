@@ -11,5 +11,6 @@ package common_utils_pkg is
     TYPE ARR_160 IS ARRAY (natural range <>) OF STD_LOGIC_VECTOR(159 downto 0);
     TYPE ARR_512 IS ARRAY (natural range <>) OF STD_LOGIC_VECTOR(511 downto 0);
     TYPE FSMState IS (IDLE, state_1, state_2, state_3, wait_all, block_wb, block_wb2, prepare_block_wb, prepare_block_wb2);
+    TYPE fifo_controller_state_axi IS (Idle_fifo, Reset_fifo, Pre_Idle_fifo, block_fetch_fifo, fetch_sub_blocks); -- controller on axi side issuing read requests for blocks
 end package;
     

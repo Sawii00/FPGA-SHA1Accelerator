@@ -51,6 +51,27 @@ ENTITY TopLevel IS
         s00_axi_rvalid  : OUT STD_LOGIC;
         s00_axi_rready  : IN STD_LOGIC;
 
+        m01_axi_awaddr  : OUT STD_LOGIC_VECTOR(C_M00_AXI_ADDR_WIDTH - 1 DOWNTO 0);
+        m01_axi_awprot  : OUT STD_LOGIC_VECTOR(2 DOWNTO 0);
+        m01_axi_awvalid : OUT STD_LOGIC;
+        m01_axi_awready : IN STD_LOGIC;
+        m01_axi_wdata   : OUT STD_LOGIC_VECTOR(C_M00_AXI_DATA_WIDTH - 1 DOWNTO 0);
+        m01_axi_wstrb   : OUT STD_LOGIC_VECTOR(C_M00_AXI_DATA_WIDTH/8 - 1 DOWNTO 0);
+        m01_axi_wvalid  : OUT STD_LOGIC;
+        m01_axi_wready  : IN STD_LOGIC;
+        m01_axi_bresp   : IN STD_LOGIC_VECTOR(1 DOWNTO 0);
+        m01_axi_bvalid  : IN STD_LOGIC;
+        m01_axi_bready  : OUT STD_LOGIC;
+        m01_axi_araddr  : OUT STD_LOGIC_VECTOR(C_M00_AXI_ADDR_WIDTH - 1 DOWNTO 0);
+        m01_axi_arprot  : OUT STD_LOGIC_VECTOR(2 DOWNTO 0);
+        m01_axi_arvalid : OUT STD_LOGIC;
+        m01_axi_arready : IN STD_LOGIC;
+        m01_axi_rdata   : IN STD_LOGIC_VECTOR(C_M00_AXI_DATA_WIDTH - 1 DOWNTO 0);
+        m01_axi_rresp   : IN STD_LOGIC_VECTOR(1 DOWNTO 0);
+        m01_axi_rvalid  : IN STD_LOGIC;
+        m01_axi_rready  : OUT STD_LOGIC;
+
+
         m00_axi_awaddr  : OUT STD_LOGIC_VECTOR(C_M00_AXI_ADDR_WIDTH - 1 DOWNTO 0);
         m00_axi_awprot  : OUT STD_LOGIC_VECTOR(2 DOWNTO 0);
         m00_axi_awvalid : OUT STD_LOGIC;
@@ -87,13 +108,18 @@ ARCHITECTURE arch_imp OF TopLevel IS
     SIGNAL register_file_sig       : TReg(C_NUM_REGISTERS - 1 DOWNTO 0);
 
     SIGNAL result_sig              : STD_LOGIC_VECTOR(C_M00_AXI_DATA_WIDTH - 1 DOWNTO 0);
+    SIGNAL result_sig_axi          : STD_LOGIC_VECTOR(C_M00_AXI_DATA_WIDTH - 1 DOWNTO 0);
     SIGNAL finished_write_sig      : STD_LOGIC;
     SIGNAL finished_read_sig       : STD_LOGIC;
+
+    SIGNAL read_sig_axi            : STD_LOGIC;
+    SIGNAL finished_read_sig_axi   : STD_LOGIC;
 
     -- outputs 
     SIGNAL read_sig                : STD_LOGIC;
     SIGNAL write_sig               : STD_LOGIC;
     SIGNAL address_sig             : STD_LOGIC_VECTOR(C_M00_AXI_ADDR_WIDTH - 1 DOWNTO 0);
+    SIGNAL address_sig_axi         : STD_LOGIC_VECTOR(C_M00_AXI_ADDR_WIDTH - 1 DOWNTO 0);
     SIGNAL data_value_sig          : STD_LOGIC_VECTOR(C_M00_AXI_DATA_WIDTH - 1 DOWNTO 0);
 
     SIGNAL index_sig               : STD_LOGIC_VECTOR(C_NUM_REGISTERS - 1 DOWNTO 0);
@@ -114,7 +140,30 @@ BEGIN
     m00_axi_arprot <= (OTHERS => '0');
     m00_axi_wstrb  <= (OTHERS => '1');
 
-    irq <= (register_file_sig(C_INDEX_DONE)(0) and register_file_sig(C_INDEX_IRQ_ENABLE)(0)) and (not register_file_sig(C_INDEX_IRQ_TOGGLE)(0));
+    irq            <= (register_file_sig(C_INDEX_DONE)(0) AND register_file_sig(C_INDEX_IRQ_ENABLE)(0)) AND (NOT register_file_sig(C_INDEX_IRQ_TOGGLE)(0));
+    fifo_contr : ENTITY work.FIFOController
+        GENERIC MAP(
+            C_M00_AXI_DATA_WIDTH => C_M00_AXI_DATA_WIDTH,
+            C_M00_AXI_ADDR_WIDTH => C_M00_AXI_ADDR_WIDTH
+        )
+        PORT MAP(
+            clk               => clk,
+            nReset            => nReset,
+
+            n_blocks          => unsigned(register_file_sig(C_INDEX_N_BLOCKS)(7 downto 0)),
+            start             => register_file_sig(C_INDEX_START)(0),
+            read              => read_sig,
+            finished_read     => finished_read_sig,
+
+            -- Towards Axi Master
+            read_axi          => read_sig_axi,
+            finished_read_axi => finished_read_sig_axi,
+            address_axi       => address_sig_axi,
+            result_axi        => result_sig_axi,
+
+            result            => result_sig,
+            block_address     => register_file_sig(C_INDEX_BLOCK_ADDRESS)
+        );
 
     slave : ENTITY work.AXI4Slave
         GENERIC MAP(
@@ -143,12 +192,12 @@ BEGIN
 
             index           => index_sig,
             reg_val         => reg_val_sig,
-            reset_reg => x"00000008", -- Register 8 is toggle-only
+            reset_reg       => x"00000008", -- Register 8 is toggle-only
             -- outputs
             register_file   => register_file_sig
         );
 
-    master : ENTITY work.AXI4Master
+    master_read : ENTITY work.AXI4Master
         GENERIC MAP(
             -- Parameters of Axi Master Bus Interface M00_AXI
             C_M00_AXI_ADDR_WIDTH => C_M00_AXI_ADDR_WIDTH,
@@ -156,16 +205,48 @@ BEGIN
         )
         PORT MAP(
 
-            read            => read_sig,
+            read            => read_sig_axi,
+            write => '0',
+            address         => address_sig_axi,
+            finished_read   => finished_read_sig_axi,
+            data_value => (others => '0'),
+
+            -- OUTPUTS
+            result          => result_sig_axi,
+
+            m00_axi_aclk    => clk,
+            m00_axi_aresetn => nReset,
+            m00_axi_awaddr  => m01_axi_awaddr,
+            m00_axi_awvalid => m01_axi_awvalid,
+            m00_axi_awready => m01_axi_awready,
+            m00_axi_wdata   => m01_axi_wdata,
+            m00_axi_wvalid  => m01_axi_wvalid,
+            m00_axi_wready  => m01_axi_wready,
+            m00_axi_bvalid  => m01_axi_bvalid,
+            m00_axi_bready  => m01_axi_bready,
+            m00_axi_araddr  => m01_axi_araddr,
+            m00_axi_arvalid => m01_axi_arvalid,
+            m00_axi_arready => m01_axi_arready,
+            m00_axi_rdata   => m01_axi_rdata,
+            m00_axi_rvalid  => m01_axi_rvalid,
+            m00_axi_rready  => m01_axi_rready
+
+        );
+
+    master_write : ENTITY work.AXI4Master
+        GENERIC MAP(
+            -- Parameters of Axi Master Bus Interface M00_AXI
+            C_M00_AXI_ADDR_WIDTH => C_M00_AXI_ADDR_WIDTH,
+            C_M00_AXI_DATA_WIDTH => C_M00_AXI_DATA_WIDTH
+        )
+        PORT MAP(
+
+            read => '0',
             write           => write_sig,
             address         => address_sig,
             data_value      => data_value_sig,
 
-            -- OUTPUTS
-
-            result          => result_sig,
             finished_write  => finished_write_sig,
-            finished_read   => finished_read_sig,
 
             m00_axi_aclk    => clk,
             m00_axi_aresetn => nReset,
@@ -185,7 +266,6 @@ BEGIN
             m00_axi_rready  => m00_axi_rready
 
         );
-
     fsm_comp : ENTITY work.FSM
         GENERIC MAP(
             C_M00_AXI_ADDR_WIDTH => C_M00_AXI_ADDR_WIDTH,
