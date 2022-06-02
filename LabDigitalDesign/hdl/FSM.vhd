@@ -42,15 +42,17 @@ ENTITY FSM IS
         -- OUTPUT TO CLUSTER
         cluster_blocks                    : OUT ARR_512(CLUSTER_COUNT - 1 DOWNTO 0);
         cluster_start                     : OUT STD_LOGIC_VECTOR(CLUSTER_COUNT - 1 DOWNTO 0);
+        fsm_irq : out std_logic
+
         -- DEBUG
 
-        debug_state                       : OUT FSMState;
-        debug_busybitmask                 : OUT STD_LOGIC_VECTOR(CLUSTER_COUNT - 1 DOWNTO 0);
-        debug_block_offset                : OUT unsigned(2 DOWNTO 0);
-        debug_payload                     : OUT STD_LOGIC_VECTOR(191 DOWNTO 0); -- hash + nonce
-        debug_fetched_block               : OUT STD_LOGIC_VECTOR(511 DOWNTO 0);
-        debug_curr_block                  : OUT unsigned(7 DOWNTO 0);
-        debug_curr_cluster_being_serviced : OUT INTEGER
+        --debug_state                       : OUT FSMState;
+        --debug_busybitmask                 : OUT STD_LOGIC_VECTOR(CLUSTER_COUNT - 1 DOWNTO 0);
+        --debug_block_offset                : OUT unsigned(2 DOWNTO 0);
+        --debug_payload                     : OUT STD_LOGIC_VECTOR(191 DOWNTO 0); -- hash + nonce
+        --debug_fetched_block               : OUT STD_LOGIC_VECTOR(511 DOWNTO 0);
+        --debug_curr_block                  : OUT unsigned(7 DOWNTO 0);
+        --debug_curr_cluster_being_serviced : OUT INTEGER
     );
 END FSM;
 
@@ -63,7 +65,8 @@ ARCHITECTURE arch_imp OF FSM IS
     --CONSTANT C_INDEX_STOP : INTEGER := 4;
     CONSTANT C_INDEX_DONE              : INTEGER                                      := 5;
     CONSTANT C_INDEX_RESULT_ADDR       : INTEGER                                      := 6;
-
+    CONSTANT C_INDEX_IRQ_ENABLE : INTEGER := 7;
+    CONSTANT C_INDEX_IRQ_TOGGLE : INTEGER := 8;
     CONSTANT ZERO                      : STD_LOGIC_VECTOR(CLUSTER_COUNT - 1 DOWNTO 0) := (OTHERS => '0');
 
     SIGNAL curr_state                  : FSMState;
@@ -77,16 +80,19 @@ ARCHITECTURE arch_imp OF FSM IS
 
     SIGNAL payload                     : STD_LOGIC_VECTOR(191 DOWNTO 0); -- hash + nonce
     SIGNAL curr_cluster_being_serviced : INTEGER;
+    signal trigger_irq :          std_logic;
 
 BEGIN
 
-    debug_state                       <= curr_state;
-    debug_busybitmask                 <= busy_bitmask;
-    debug_block_offset                <= block_offset;
-    debug_payload                     <= payload;
-    debug_curr_cluster_being_serviced <= curr_cluster_being_serviced;
-    debug_fetched_block               <= fetched_block;
-    debug_curr_block                  <= curr_block;
+    --debug_state                       <= curr_state;
+    --debug_busybitmask                 <= busy_bitmask;
+    --debug_block_offset                <= block_offset;
+    --debug_payload                     <= payload;
+    --debug_curr_cluster_being_serviced <= curr_cluster_being_serviced;
+    --debug_fetched_block               <= fetched_block;
+    --debug_curr_block                  <= curr_block;
+
+    fsm_irq <= register_file(C_INDEX_IRQ_ENABLE)(0) and trigger_irq;
 
     fsm : PROCESS (clk, nReset)
         VARIABLE cluster_finished  : INTEGER;
@@ -95,6 +101,7 @@ BEGIN
         IF rising_edge(clk) THEN
             IF nReset = '0' THEN
                 payload                     <= (OTHERS => '0');
+                trigger_irq <= '0';
                 curr_state                  <= Idle;
                 curr_cluster_being_serviced <= 0;
                 assigned_block              <= (OTHERS => (OTHERS => '0'));
@@ -114,6 +121,7 @@ BEGIN
                 CASE(curr_state) IS
                     WHEN Idle                              =>
                     address                     <= (OTHERS => '0');
+                    trigger_irq <= '0'; 
                     curr_cluster_being_serviced <= 0;
                     block_offset                <= "000";
                     payload                     <= (OTHERS => '0');
@@ -231,6 +239,7 @@ BEGIN
                         block_offset                <= "000";
                     ELSIF busy_bitmask = ZERO THEN
                         curr_state <= Idle;
+                        trigger_irq <= '1'; 
                     END IF;
                     WHEN prepare_block_wb2 =>
                     write        <= '1';

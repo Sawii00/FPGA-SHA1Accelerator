@@ -35,7 +35,7 @@ ARCHITECTURE arch_imp OF SHA1Accelerator_pipelined IS
 
     -- Make sure they are multiple of 4 
     CONSTANT num_op_cycle_word_population : INTEGER := 16; -- do not exceed 16
-    CONSTANT num_op_cycle_main_loop : INTEGER := 1;
+    CONSTANT num_op_cycle_main_loop : INTEGER := 2;
 BEGIN
 
     --a_o <= a;

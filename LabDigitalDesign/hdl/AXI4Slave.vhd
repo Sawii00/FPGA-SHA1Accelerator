@@ -37,7 +37,8 @@ ENTITY AXI4Slave IS
         index           : IN STD_LOGIC_VECTOR(C_NUM_REGISTERS - 1 DOWNTO 0);
         reg_val         : IN STD_LOGIC_VECTOR(C_S00_AXI_DATA_WIDTH - 1 DOWNTO 0);
 
-        reset_reg       : IN STD_LOGIC_VECTOR(C_S00_AXI_DATA_WIDTH - 1 DOWNTO 0);
+        reset_irq : out std_logic;
+
         -- outputs
         register_file   : OUT TReg(C_NUM_REGISTERS - 1 DOWNTO 0)
     );
@@ -48,8 +49,7 @@ ARCHITECTURE arch_imp OF AXI4Slave IS
     SIGNAL current_state          : SlaveState;
     SIGNAL aread, awrite          : STD_LOGIC_VECTOR(C_S00_AXI_ADDR_WIDTH - 1 - 2 DOWNTO 0);
     SIGNAL register_file_internal : TReg(C_NUM_REGISTERS - 1 DOWNTO 0);
-
-    CONSTANT zero                 : STD_LOGIC_VECTOR(C_S00_AXI_DATA_WIDTH - 1 DOWNTO 0) := (OTHERS => '0');
+    constant C_INDEX_TOGGLE_IRQ : integer := 8;
 
 BEGIN
 
@@ -67,13 +67,10 @@ BEGIN
             s00_axi_wready  <= '0';
             s00_axi_rvalid  <= '0';
             s00_axi_bvalid  <= '0';
+            reset_irq <= '0';
 
             IF to_integer(unsigned(index)) < C_NUM_REGISTERS THEN
                 register_file_internal(to_integer(unsigned(index))) <= reg_val;
-            END IF;
-
-            IF register_file_internal(to_integer(unsigned(reset_reg)))  /= zero THEN
-                register_file_internal(to_integer(unsigned(reset_reg))) <= (OTHERS => '0');
             END IF;
 
             IF s00_axi_aresetn = '0' THEN
@@ -93,8 +90,12 @@ BEGIN
                     WHEN Write =>
                     s00_axi_wready <= '1';
                     IF s00_axi_wvalid = '1' THEN
+                        if to_integer(unsigned(awrite)) = C_INDEX_TOGGLE_IRQ then 
+                            reset_irq <= '1';
+                        else
+                            register_file_internal(to_integer(unsigned(awrite))) <= s00_axi_wdata;
+                        end if;
                         current_state                                        <= Finish;
-                        register_file_internal(to_integer(unsigned(awrite))) <= s00_axi_wdata;
                     END IF;
 
                     WHEN Finish =>
