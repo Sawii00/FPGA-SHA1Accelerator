@@ -67,7 +67,6 @@ BEGIN
             s00_axi_wready  <= '0';
             s00_axi_rvalid  <= '0';
             s00_axi_bvalid  <= '0';
-            reset_irq <= '0';
 
             IF to_integer(unsigned(index)) < C_NUM_REGISTERS THEN
                 register_file_internal(to_integer(unsigned(index))) <= reg_val;
@@ -78,6 +77,7 @@ BEGIN
             ELSE
                 CASE(current_state) IS
                     WHEN Idle =>
+                    reset_irq <= '0';
                     s00_axi_bvalid <= '0';
                     IF s00_axi_awvalid = '1' THEN
                         current_state   <= Write;

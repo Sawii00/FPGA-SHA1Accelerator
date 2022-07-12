@@ -14,7 +14,7 @@ ENTITY TopLevel IS
         -- Do not modify the parameters beyond this line
         -- Parameters of Axi Slave Bus Interface S00_AXI
         C_S00_AXI_DATA_WIDTH : INTEGER := 32;
-        C_S00_AXI_ADDR_WIDTH : INTEGER := 5;
+        C_S00_AXI_ADDR_WIDTH : INTEGER := 6;
         C_NUM_REGISTERS : INTEGER := 9;
 
         -- Parameters of Axi Master Bus Interface M00_AXI
