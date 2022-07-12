@@ -16,5 +16,8 @@ The whole system can be parametrically configured in terms of clusters and hashe
 
 ![image](https://user-images.githubusercontent.com/23176335/178532864-1cb9ebd7-9d93-4ab5-a579-c196cd9f4b15.png)
 
+## Software
+The software runs on Linux, and a custom kernel driver is provided to abstract away the hardware details and register map to the user application. 
+
 ## Performance
 Despite many improvements can be made to the system design, which handles poorly the memory accesses without employing an AXI4-Full Master and only runs at 76 MHz, we are able to achieve a 40x speedup compared to a software only approach running on the ARM processor of the Pynq-Z2 (at around 600MHz)
