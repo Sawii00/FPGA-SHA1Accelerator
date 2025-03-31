@@ -159,6 +159,7 @@ ssize_t hasher_read(struct file *filed_mem, char __user *buf, size_t count, loff
     iowrite32(0xFFFFFFFF, hasher_mem.baseAddr + sizeof(uint32_t) * REG_ENABLE_INTERRUPTS);
     iowrite32(0x1, hasher_mem.baseAddr + sizeof(uint32_t) * REG_ISR);
     mb();
+    flag = 0;
 #endif
 
     iowrite32(1, hasher_mem.baseAddr + START * sizeof(uint32_t));
@@ -175,10 +176,10 @@ ssize_t hasher_read(struct file *filed_mem, char __user *buf, size_t count, loff
     // When we go to sleep, the processor is free for other tasks.
 #if DRIVER_WITH_INTERRUPT
     // printk("Val: %x\n", ioread32(hasher_mem.baseAddr + sizeof(uint32_t) * REG_ENABLE_INTERRUPTS));
-    flag = 0;
     while (wait_event_interruptible(wq, flag != 0))
     {
         printk(KERN_ALERT "hasher_DRIVER: AWOKEN BY ANOTHER SIGNAL\n");
+        return 0;
     }
     pr_info("hasher_DRIVER: AWOKEN FROM INTERRUPT\n");
 
