@@ -4,4 +4,6 @@
 # But not these files...
 !.gitignore
 !hasher.c
+!hasher_platform.c
 !Makefile
+!README.md
